@@ -252,3 +252,129 @@ const auth = getAuth();
 ```
 
 Du må nok lukke utviklingsserveren og starte den på nytt (`npm start`).
+
+Last opp eit bilete i appen din og sjekk emulator-konsollen på http://127.0.0.1:4000 at fila er lasta opp.
+
+## Del 7: Lage thumbnail med Cloud Functions
+
+Det hadde vore kult å kunne vise små previews eller _thumbnails_ av alle opplasta bilete, og så la brukaren trykke på eit for å sjå det på stort format. Dette kan me sjølvsagt gjere med bileta som er lasta opp, som dei er. Men å laste ned kjempestore bilete berre for å vise bittesmå versjonar av dei, er sløsing av bandbreidde. Og det betalar du for! Så la oss lage ein _Cloud Function_ som lagar små thumbnail-versjonar av bileta som blir lasta opp.
+
+Det me ønsker å lage er ein funksjon som:
+
+1. Blir automatisk kjørt når ein brukar har lasta opp eit bilete
+2. Lastar ned biletet og lagar ein liten thumbnail-kopi av dette
+3. Lastar opp thumbnail-biletet i brukaren si mappe, med ein postfix i namnet.
+
+Ok, let's go.
+
+Installer Functions-emulatoren:
+
+```
+firebase init
+```
+
+Velg både Emulators og Functions på det første spørsmålet.
+
+Du kan godt svare JA til Typescript og NEI til ESLint.
+
+Velg Functions-emulatoren på neste spørsmål.
+
+No skal du ha fått ei heilt ny mappe som heiter `functions` med masse greier inni. Bytt ut innhaldet i `functions/src/index.ts` med dette:
+
+```typescript
+import * as functions from "firebase-functions";
+
+exports.generateThumbnail = functions.storage
+  .object()
+  .onFinalize(async (object) => {
+    console.log("Oi oi! Her skjer det ting!");
+    console.log(object);
+  });
+```
+
+Det er nok for å teste litt i første omgang. Denne enkle funksjonen vil køyre når eit objekt er ferdig lasta opp til storage.
+
+Gå inn i functions-mappa og bygg prosjektet ein gong:
+
+```
+cd functions
+npm run build
+```
+
+No kan du restarte emulatorane i rot-mappa, og du skal sjå at du har emulatorar for både Authentication, Functions og Storage køyrande, på hhv. port 9099, 5001 og 9199.
+
+Last opp eit bilete i appen din, og følg med i terminalen der emulatorane din køyrer. Du skal sjå at der skjer det ting!
+
+Ok, no er det på tide å gjere noko fornuftig og begynne på thumbnail-genereringa.
+
+Gå inn i functions og installer biblioteket `sharp`. Dette skal ta seg av resizinga for oss:
+
+```
+cd functions
+npm install sharp @types/sharp
+```
+
+Legg også til `"esModuleInterop": true` i `functions/tsconfig.json` sine `"compilerOptions"` for å unngå klaging på import av sharp.
+
+Bytt deretter ut innhaldet i `functions/src/index.ts` med dette:
+
+```typescript
+import { pipeline } from "stream/promises";
+
+import * as functions from "firebase-functions";
+import { initializeApp } from "firebase-admin/app";
+import { getStorage } from "firebase-admin/storage";
+import sharp from "sharp";
+
+initializeApp();
+
+const storage = getStorage();
+
+exports.generateThumbnail = functions.storage
+  .object()
+  .onFinalize(async (object) => {
+    const { bucket, name } = object;
+
+    // Dette unngår evig løkke. Functionen vil også trigge på opplasting av thumbnails!
+    if (!name || name.endsWith(".thumbnail.jpg")) {
+      return;
+    }
+
+    // Denne transformeren vil lage JPEGs som er maks 200 px høge eller breie av det me sender til den.
+    const imageTransformer = sharp().jpeg().resize(200);
+
+    const downloadStream = storage
+      .bucket(bucket)
+      .file(name)
+      .createReadStream({ validation: !process.env.FUNCTIONS_EMULATOR });
+
+    const uploadStream = storage
+      .bucket(bucket)
+      .file(name.replace(/\..+$/, ".thumbnail.jpg"))
+      .createWriteStream({
+        contentType: "image/jpeg",
+        resumable: false,
+      });
+
+    // Me streamer alt og slepp å laste ned heile biletet i minne før me lastar opp igjen.
+    // Minne-effektivt og raskt!
+    return pipeline(downloadStream, imageTransformer, uploadStream);
+  });
+```
+
+Bygg functions-prosjektet igjen og restart emulatorane.
+
+```
+cd functions
+npm run build
+cd ..
+firebase emulators:start
+```
+
+Test å laste opp eit bilete i appen din, og sjekk filene i http://127.0.0.1:4000/storage. Der burde både hovudbiletet og thumbnailen ligge!
+
+### Bonusoppgåver
+
+- Bruk thumbnails på nettsida di, og vis original-biletet ved trykk på thumbnail.
+- Lag ein function som slettar thumbnails når hovudbiletet vert sletta.
+- Lag ein function som slettar alle bileta til ein brukar når ein brukar vert sletta (https://firebase.google.com/docs/functions/auth-events)

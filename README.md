@@ -1,46 +1,254 @@
-# Getting Started with Create React App
+# Firebase Storage Workshop
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Velkommen til ein liten workshop om Firebase Cloud Storage! Det er ikkje meininga at du skal klone dette repoet, men sjekk gjerne koden for løsningsforslag.
 
-## Available Scripts
+## Del 1: Oppsett
 
-In the project directory, you can run:
+Lag ein splitter ny React-app ved namn `firebase-storage-workshop`:
 
-### `npm start`
+```
+npx create-react-app firebase-storage-workshop --template typescript
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Lag Firebase-prosjekt på https://console.firebase.google.com ved namn firebase-storage-workshop.
+Gå til Build -> Storage og trykk Get Started. Start in test mode. Velg ein europeisk region, f.eks. eur3 (europe-west).
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Installer firebase-tools om du ikkje har det:
 
-### `npm test`
+```
+npm i -g firebase-tools@latest
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Logg inn:
 
-### `npm run build`
+```
+firebase login
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Om du allerede er logga inn på feil konto, bruk `firebase logout` først.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Initialiser prosjektet:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+firebase init
+```
 
-### `npm run eject`
+Velg Storage.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+Gå i firebase-konsollen igjen, framsida for prosjektet ditt. Legg til web-app. Kall den firebase-storage-workshop.
+Følg instruksane for å installere Firebase SDK-en (npm install firebase) og kopier konfigurasjonen inn i App.tsx mellom dei eksisterande import-linjene og `function App() {`
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Del 2: Vise manuelt opplasta bilde
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+Importer følgande frå firebase/storage:
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```
+import { getStorage, ref, getDownloadURL } from "firebase/storage";
+```
 
-## Learn More
+Lag ein referanse til bildet du lasta opp:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```diff
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
-To learn React, check out the [React documentation](https://reactjs.org/).
++const storage = getStorage();
++const imageRef = ref(storage, "Snø.jpg");
+
+function App() {
+```
+
+Deretter bruk `getDownloadUrl` for å få tak i ein URL som kan brukast i `<img>`-elementet:
+
+```diff
+function App() {
++  const [imageUrl, setImageUrl] = React.useState("");
++
++  useEffect(() => {
++    getDownloadURL(imageRef).then(setImageUrl);
++  }, []);
+
+  return (
+    <div className="App">
+      <header className="App-header">
+-        <img src={logo} className="App-logo" alt="logo" />
++        <img src={imageUrl} height="200" width="200" />
+        <p>
+```
+
+Flott! Du har vist fram eit bilde. Logg gjerne ut URLen og ta ein kikk på den. Den bør ha eit token i seg.
+
+Last opp biletet ditt på nytt i Firebase-konsollen og sjekk at tokenet i URLen endrar seg, sjølv om bildet er likt.
+
+Når man lastar opp eit bilete på nytt, vil nemleg dette tokenet bli endra. Så ver forsiktig men lagring av fulle URLar, dei kan bli utdaterte.
+
+Kopier URLen og hardkod denne inn i `src`. Fjern token-delen av URLen og refresh sida. Det skal fortsatt gå fint. Det er fordi me har fullstendig åpne Security Rules, som gjer at alle bilete er offentlege.
+
+## Del 3: Opplasting
+
+Legg til eit input-element for opplasting av filer i App.tsx:
+
+```typescript
+<input
+  type="file"
+  id="file-upload"
+  name="file-upload"
+  accept="image/png, image/jpeg"
+  onChange="{uploadFile}"
+/>
+```
+
+Legg også til funksjonen `uploadFile` som tar seg av opplastinga:
+
+```typescript
+const uploadFile: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const uploadedImageRef = ref(storage, file.name);
+
+  uploadBytes(uploadedImageRef, file).then((snapshot) => {
+    alert("Uploaded file successfully!");
+  });
+};
+```
+
+Bruk den nye knappen din til å laste opp eit bilete. Sjekk i Firebase-konsollen etterpå at biletet ditt vart lasta opp.
+
+### Bonusoppgåver:
+
+- Bruk `uploadBytesResumable` og listeners til å lage "progress bar" for opplasting. (https://firebase.google.com/docs/storage/web/upload-files#monitor_upload_progress)
+- Bruk `listAll` til å liste ut og vise alle bileta du har lasta opp (https://firebase.google.com/docs/storage/web/list-files#list_all_files)
+
+## Del 4: Autentisering
+
+Før me ser på Security Rules bør me ha implementert autentisering. Me gjer det enkelt med Anonynmous Authentication.
+
+Gå til Firebase Console -> Authentication og aktiver Anonymous authentication.
+
+Importer nødvendig kode frå Firebase Authentication:
+
+```diff
+import { getStorage, ref, getDownloadURL, uploadBytes } from "firebase/storage";
++import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import "./App.css";
+```
+
+Legg til referance til `auth` ein plass etter `initializeApp`:
+
+```diff
+const app = initializeApp(firebaseConfig);
+
+const storage = getStorage();
++const auth = getAuth();
+```
+
+Legg til slutt denne useEffecten til i App-komponenten:
+
+```diff
+
+function App() {
+  const [imageUrl, setImageUrl] = React.useState("");
++  const [uid, setUid] = React.useState<string | undefined>();
++
++  useEffect(() => {
++    return onAuthStateChanged(auth, (user) => {
++      if (!user) {
++        signInAnonymously(auth).catch(console.error);
++      }
++      console.log("uid", user?.uid);
++      setUid(user?.uid);
++    });
++  }, []);
+```
+
+Denne vil logge deg inn anonymt dersom du ikkje allerede er logga inn.
+Sjekk gjerne i Authentication i Firebase Console at det er blitt oppretta ein brukar.
+
+## Del 5: Stuktur og Security Rules
+
+Målet vårt no blir at berre eigaren av eit bilete kan slette og endre det, men at alle andre kan sjå det. For å få dette til, bør me endre litt på filstrukturen vår.
+
+Bruk `user.uid` for å lage ei slags "mappe" for kvar brukar, som me legg bileta i.
+
+```diff
+const uploadFile: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
++
++  if (!uid) {
++    return alert("uid manglar!");
++  }
+
+-  const uploadedImageRef = ref(storage, file.name);
++  const uploadedImageRef = ref(storage, `${uid}/${file.name}`);
+
+  uploadBytes(uploadedImageRef, file).then((snapshot) => {
+    alert("Uploaded file successfully!");
+  });
+};
+```
+
+Prøv å laste opp eit bilete igjen no. Sjekk at det legg seg riktig i Firebase Console.
+
+No kan me oppdatere Security Rules til å sikre at ingen andre brukarar kan endre eller slette våre eigne bilete. Bytt ut innhalder i `storage.rules` med dette:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{uid} {
+      match /{allPaths=**} {
+        allow write: if request.auth.uid == uid;
+      }
+    }
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+  }
+}
+```
+
+Deploy dette med `firebase deploy --only storage` eller lim inn det same innhaldet under Storage -> Rules i Firebase Console.
+
+Desse reglane gir skrivetilgang til alle filer under `uid` dersom brukaren som gjer kallet (`request.auth.uid`) matcher prefiksen på mappa!
+
+Alle andre får lesetilgang til alle filer, sjølv dei som ikkje er logga inn.
+
+### Bonusoppgåver:
+
+- La kun innlogga brukarar få lesetilgang.
+
+## Del 6: Emulering
+
+Dette går jo susande bra. Men å teste rett mot "prod" er ikkje optimalt. La oss derfor ta i bruk _Firebase Emulator Suite_.
+
+Kjør denne badboyen igjen:
+
+```
+firebase init
+```
+
+Velg **Emulators** på spørsmålet «Which Firebase features ...»
+
+Velg Authentication og Storage på spørsmålet «Which Firebase emulators do you want to set up?»
+
+Når dette er gjort, kan du starte emulatorane med:
+
+```
+firebase emulators:start
+```
+
+I `App.tsx` må du så legge til følgande kode for å be Firebase bruke emulatorane:
+
+```diff
+const storage = getStorage();
+const auth = getAuth();
+
++if (window.origin.startsWith("http://localhost")) {
++  connectStorageEmulator(storage, "localhost", 9199);
++  connectAuthEmulator(auth, "http://localhost:9099");
++}
+```
+
+Du må nok lukke utviklingsserveren og starte den på nytt (`npm start`).

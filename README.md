@@ -102,6 +102,11 @@ Legg til eit input-element for opplasting av filer i App.tsx:
 
 Legg også til funksjonen `uploadFile` som tar seg av opplastinga:
 
+```diff
+-import { getStorage, ref, getDownloadURL } from "firebase/storage";
++import { getStorage, ref, getDownloadURL, uploadBytes } from "firebase/storage";
+```
+
 ```typescript
 const uploadFile: React.ChangeEventHandler<HTMLInputElement> = (event) => {
   const file = event.target.files?.[0];

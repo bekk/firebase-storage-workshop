@@ -96,7 +96,7 @@ Legg til eit input-element for opplasting av filer i App.tsx:
   id="file-upload"
   name="file-upload"
   accept="image/png, image/jpeg"
-  onChange="{uploadFile}"
+  onChange={uploadFile}
 />
 ```
 

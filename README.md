@@ -40,6 +40,8 @@ Følg instruksane for å installere Firebase SDK-en (npm install firebase) og ko
 
 ## Del 2: Vise manuelt opplasta bilde
 
+Finn eit bilde du likar og last det opp til Storage gjennom Firebase-konsollen (https://console.firebase.google.com -> Storage).
+
 Importer følgande frå firebase/storage:
 
 ```

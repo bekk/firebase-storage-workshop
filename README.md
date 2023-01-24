@@ -124,7 +124,7 @@ Bruk den nye knappen din til å laste opp eit bilete. Sjekk i Firebase-konsollen
 
 ## Del 4: Autentisering
 
-Før me ser på Security Rules bør me ha implementert autentisering. Me gjer det enkelt med Anonynmous Authentication.
+Før me ser på Security Rules bør me ha implementert autentisering. Me gjer det enkelt med Anonymous Authentication.
 
 Gå til Firebase Console -> Authentication og aktiver Anonymous authentication.
 
@@ -167,7 +167,7 @@ function App() {
 Denne vil logge deg inn anonymt dersom du ikkje allerede er logga inn.
 Sjekk gjerne i Authentication i Firebase Console at det er blitt oppretta ein brukar.
 
-## Del 5: Stuktur og Security Rules
+## Del 5: Struktur og Security Rules
 
 Målet vårt no blir at berre eigaren av eit bilete kan slette og endre det, men at alle andre kan sjå det. For å få dette til, bør me endre litt på filstrukturen vår.
 
